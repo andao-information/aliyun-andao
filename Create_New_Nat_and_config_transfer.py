@@ -382,6 +382,8 @@ if __name__ == '__main__':
     for key, value in opts:
         if key in ['-h', '--help']:
             print('联系人：陈柳安')
+            print('该脚本会先创建一个NAT，然后把旧NAT配置转移到新创建NAT上。')
+            print('转移的配置包括SNAT、EIP、NAT路由条目')
             print ('参数：')
             print ('-h\t显示帮助')
             print ('-n\t输入你的NAT网关ID')

@@ -40,14 +40,15 @@ class WAF:
                             'ac_collaborative',
                             'ac_custom']
         
-        #self.accessKeyId = 'TMP.3KeRDTJEpK9zZ2tMeki4HThgQAPLtmB44KVUCz1BjaoopD9kRqqUSGv7FP66LC2VGwZzGsxK9KMc1VKWHDPWWnXeYKwduL'
-        #self.accessSecret = '5tpFKanE3UM8qMCcw2n6mqi8hPG3H5hw69qJ8AMCzjXH'
+        #self.accessKeyId = 'TMP.3Khh9YKAkZqAcudLCtLHvVdbqHXs5AYjRHYMKWtrEqBJf8UmvooWD2jszupybVAeMNqShu3bHyKcVHxEcWaUWjVepWs23q'
+        #self.accessSecret = 'GzNrEWuHGkMXEzoBY5bXFa2gLURSjw7nxfvrUWsEgwyC'
         self.accessKeyId = os.environ['ACCESS_KEY_ID']
         self.accessSecret = os.environ['ACCESS_KEY_SECRET']
         self.region = 'cn-shenzhen'
         self.WAF_InstanceId = self.get_WAF_InstanceId()
         self.WAF_Domains = self.get_WAF_domain()
         self.config = self.exmple_modle_config()
+        self.old_config = None
     def get_WAF_InstanceId(self):
         client = AcsClient(self.accessKeyId,\
                            self.accessSecret, self.region)
@@ -119,22 +120,50 @@ class WAF:
         request.set_DefenseType(DefenseType)
         request.set_InstanceId(self.WAF_InstanceId)
         request.set_ModuleStatus(set_number)
-        
-        response = client.do_action_with_exception(request)
-        # python2:  print(response) 
-        #print(str(response, encoding='utf-8'))
-        tmp_json = json.loads(str(response, encoding = 'utf-8'))
-        print(tmp_json)
+        while True:
+            try:
+                response = client.do_action_with_exception(request)
+                print("-",end="")
+                break
+            except:
+                print("错误",end="")
+                tmp_json = json.loads(str(response, encoding = 'utf-8'))
+                print(tmp_json)
+                
     def set_all_status(self,Domain):
         for i in range(len(self.DefenseTypes)):
             self.set_status_modle(Domain, self.DefenseTypes[i], self.config[i])
+    def read_config_csv(self):
+        old_config_list = []
+        with open('out-status.csv', 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                old_config_list.append(list(row))
+        self.old_config = old_config_list[1:]
+        
+    def reset_all_Domains_config(self):
+        self.read_config_csv()
+        Domains_list = txt2list(file = 'domains.txt')
+        for Domain in Domains_list:#先确认domains.txt文件里面的域名
+            for old in self.old_config:#先确认out-status.csv文件里面的域名
+                
+                if Domain in old:#如果domains.txt某一条域名和原先配置域名一直就执行配置还原
+                    tmp_config = old[1:]
+                    print("回退操作，域名为："+old[0])
+                    for i in range(len(self.DefenseTypes)):
+                        #print(self.DefenseTypes[i],end=':')
+                        #print(tmp_config[i])
+                        #pass
+                        self.set_status_modle(Domain, self.DefenseTypes[i], int(tmp_config[i]))
+                    print("回退操作成功")
+                    
 def txt2list(file = ''):
     with open(file, "r") as f:  # 打开文件
         data = f.read()  # 读取文件
     return data.split('\n')
 
 if __name__ == '__main__':
-    opts, args = getopt.getopt(sys.argv[1:], '-hd:-s', ['help','Domains_list=' ,'status='])
+    opts, args = getopt.getopt(sys.argv[1:], '-hd:-sr', ['help','Domains_list=' ,'status=','reset='])
     #print(args)
     Domains_list = []
     for key, value in opts:
@@ -143,8 +172,9 @@ if __name__ == '__main__':
             print('该脚本参考mall.amway.com.cn网站WAF配置，设置其他网站WAF')
             print('参数：')
             print('-h\t显示帮助')
-            print('-d\t输入你的txt文件，文件一行一个域名数量不限')
+            print('-d\t输入你的txt文件名，文件一行一个域名数量不限')
             print('-s\t执行输出所有域名的配置开关状态，并且输出到一个CSV文件上')
+            print('-r\t根据-s 输出的文件out-status.csv文件来还原原来的配置')
             #print(opts)
             #print(key)
             sys.exit(0)
@@ -167,5 +197,9 @@ if __name__ == '__main__':
             waf = WAF()
             waf.out_all_domains_status()
             sys.exit(0)
-            
+        if key in ['-r', '--reset']:
+            print("选择回退操作")
+            waf = WAF()
+            waf.reset_all_Domains_config()
+            sys.exit(0)
     
